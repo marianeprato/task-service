@@ -6,3 +6,6 @@ management:
         include: health
 server:
   port: 8080
+reminder:
+  service:
+    base-url=http://localhost:8081:

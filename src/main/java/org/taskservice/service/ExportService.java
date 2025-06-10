@@ -27,6 +27,7 @@ public class ExportService {
     private static final int COL_DUE = 4;
     private static final int COL_REMINDER_ID = 5;
     private static final int COL_REMINDER_MSG = 6;
+    private static final String SHEET_NAME    = "Tasks & Reminders";
 
     private final TaskRepository taskRepository;
     private final ReminderClient reminderClient;
@@ -36,31 +37,14 @@ public class ExportService {
         log.info("Generating export for {} tasks", tasks.size());
 
         try (
-                XSSFWorkbook wb = new XSSFWorkbook();
-                ByteArrayOutputStream out = new ByteArrayOutputStream()
+                XSSFWorkbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()
         ) {
-            Sheet sheet = wb.createSheet("Tasks & Reminders");
+            Sheet sheet = workbook.createSheet(SHEET_NAME);
             createHeader(sheet);
+            populateRows(sheet, tasks, 1);
 
-            int rowIdx = 1;
-            for (Task task : tasks) {
-                List<ReminderResponse> reminders = reminderClient.getRemindersForTask(task.taskId());
-
-                if (reminders.isEmpty()) {
-                    Row row = sheet.createRow(rowIdx++);
-                    fillTaskRow(row, task);
-                } else {
-                    for (ReminderResponse reminder : reminders) {
-                        Row row = sheet.createRow(rowIdx++);
-                        fillTaskRow(row, task);
-                        row.createCell(COL_REMINDER_ID).setCellValue(reminder.reminderId());
-                        row.createCell(COL_REMINDER_MSG).setCellValue(reminder.message());
-                    }
-                }
-            }
-
-            writeWorkbook(wb, out);
-
+            writeWorkbook(workbook, out);
             return out.toByteArray();
 
         } catch (IOException e) {
@@ -69,11 +53,32 @@ public class ExportService {
         }
     }
 
-    void writeWorkbook(XSSFWorkbook wb, ByteArrayOutputStream out) throws IOException {
-        wb.write(out);
+    void writeWorkbook(XSSFWorkbook workbook, ByteArrayOutputStream out) throws IOException {
+        workbook.write(out);
     }
 
-    private void createHeader(Sheet sheet) {
+    private int populateRows(Sheet sheet, List<Task> tasks, int startRowIdx) {
+        int rowIndex = startRowIdx;
+
+        for (Task task : tasks) {
+            List<ReminderResponse> reminders = reminderClient.getRemindersForTask(task.taskId());
+
+            if (reminders.isEmpty()) {
+                Row row = sheet.createRow(rowIndex++);
+                fillTaskRow(row, task);
+            } else {
+                for (ReminderResponse reminder : reminders) {
+                    Row row = sheet.createRow(rowIndex++);
+                    fillTaskRow(row, task);
+                    row.createCell(COL_REMINDER_ID).setCellValue(reminder.reminderId());
+                    row.createCell(COL_REMINDER_MSG).setCellValue(reminder.message());
+                }
+            }
+        }
+        return rowIndex;
+    }
+
+    private static void createHeader(Sheet sheet) {
         Row header = sheet.createRow(0);
         header.createCell(COL_TASK_ID).setCellValue("Task ID");
         header.createCell(COL_TITLE).setCellValue("Title");
@@ -84,7 +89,7 @@ public class ExportService {
         header.createCell(COL_REMINDER_MSG).setCellValue("Reminder Message");
     }
 
-    private void fillTaskRow(Row row, Task task) {
+    private static void fillTaskRow(Row row, Task task) {
         row.createCell(COL_TASK_ID).setCellValue(task.taskId().toString());
         row.createCell(COL_TITLE).setCellValue(task.taskTitle());
         row.createCell(COL_DESCRIPTION).setCellValue(task.taskDescription());
