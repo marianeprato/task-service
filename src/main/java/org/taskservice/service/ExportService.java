@@ -43,10 +43,8 @@ public class ExportService {
             Sheet sheet = workbook.createSheet(SHEET_NAME);
             createHeader(sheet);
             populateRows(sheet, tasks, 1);
-
             writeWorkbook(workbook, out);
             return out.toByteArray();
-
         } catch (IOException e) {
             log.error("Failed to generate Excel file", e);
             throw new RuntimeException("Failed to generate Excel file", e);
@@ -58,24 +56,35 @@ public class ExportService {
     }
 
     private int populateRows(Sheet sheet, List<Task> tasks, int startRowIdx) {
-        int rowIndex = startRowIdx;
+        final int[] rowIndex = {startRowIdx};
 
-        for (Task task : tasks) {
+        tasks.forEach(task -> {
             List<ReminderResponse> reminders = reminderClient.getRemindersForTask(task.taskId());
 
             if (reminders.isEmpty()) {
-                Row row = sheet.createRow(rowIndex++);
-                fillTaskRow(row, task);
+                rowIndex[0] = writeTaskOnlyRow(sheet, task, rowIndex[0]);
             } else {
-                for (ReminderResponse reminder : reminders) {
-                    Row row = sheet.createRow(rowIndex++);
-                    fillTaskRow(row, task);
-                    row.createCell(COL_REMINDER_ID).setCellValue(reminder.reminderId());
-                    row.createCell(COL_REMINDER_MSG).setCellValue(reminder.message());
-                }
+                reminders.forEach(reminder ->
+                        rowIndex[0] = writeTaskWithReminderRow(sheet, task, reminder, rowIndex[0])
+                );
             }
-        }
-        return rowIndex;
+        });
+
+        return rowIndex[0];
+    }
+
+    private int writeTaskOnlyRow(Sheet sheet, Task task, int rowIndex) {
+        Row row = sheet.createRow(rowIndex);
+        fillTaskRow(row, task);
+        return rowIndex + 1;
+    }
+
+    private int writeTaskWithReminderRow(Sheet sheet, Task task, ReminderResponse reminder, int rowIndex) {
+        Row row = sheet.createRow(rowIndex);
+        fillTaskRow(row, task);
+        row.createCell(COL_REMINDER_ID).setCellValue(reminder.reminderId());
+        row.createCell(COL_REMINDER_MSG).setCellValue(reminder.message());
+        return rowIndex + 1;
     }
 
     private static void createHeader(Sheet sheet) {

@@ -9,6 +9,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.taskservice.client.ReminderClient;
 import org.taskservice.dto.ReminderResponse;
@@ -27,7 +28,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -207,23 +207,32 @@ class ExportServiceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(FailureScenario.class)
-    void generateExportFails(final FailureScenario scenario) throws Exception {
+    @EnumSource(value = FailureScenario.class, names = "REMINDER")
+    void generateExportFails_whenReminderServiceFails(final FailureScenario scenario) {
         final Task task = new Task(UUID.randomUUID(), "ErrTest", "ErrDesc", LocalDate.now(), LocalDate.now().plusDays(1));
         when(taskRepository.findAll()).thenReturn(List.of(task));
+        when(reminderClient.getRemindersForTask(task.taskId()))
+                .thenThrow(new RuntimeException("Reminder service down"));
 
-        if (scenario == FailureScenario.REMINDER) {
-            when(reminderClient.getRemindersForTask(task.taskId()))
-                    .thenThrow(new RuntimeException("Reminder service down"));
-            assertThatThrownBy(exportService::generateExport)
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining(scenario.getMessageFragment());
-        } else {
-            final ExportService spyService = spy(new ExportService(taskRepository, reminderClient));
-            doThrow(new IOException("Disk full")).when(spyService).writeWorkbook(any(), any());
-            assertThatThrownBy(spyService::generateExport)
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining(scenario.getMessageFragment());
-        }
+        assertThatThrownBy(exportService::generateExport)
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining(scenario.getMessageFragment());
     }
+
+    @Test
+    void generateExportFails_whenWorkbookWriteFails() throws Exception {
+        Task task = new Task(UUID.randomUUID(), "ErrTest", "ErrDesc", LocalDate.now(), LocalDate.now().plusDays(1));
+        when(taskRepository.findAll()).thenReturn(List.of(task));
+        when(reminderClient.getRemindersForTask(task.taskId())).thenReturn(List.of());
+
+        ExportService spyService = Mockito.spy(new ExportService(taskRepository, reminderClient));
+
+        doThrow(new IOException("Disk full")).when(spyService).writeWorkbook(any(), any());
+
+        assertThatThrownBy(spyService::generateExport)
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Failed to generate Excel file");
+    }
+
+
 }

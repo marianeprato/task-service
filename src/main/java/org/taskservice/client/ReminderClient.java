@@ -1,6 +1,5 @@
 package org.taskservice.client;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -11,22 +10,21 @@ import java.util.List;
 import java.util.UUID;
 
 @Component
-@RequiredArgsConstructor
 public class ReminderClient {
 
     private final RestTemplate restTemplate;
-
-    @Value("${reminder.service.base-url}")
     private final String reminderServiceBaseUrl;
 
-    public List<ReminderResponse> getRemindersForTask(UUID taskId) {
-        final String url = reminderServiceBaseUrl + "/reminders/{taskId}";
+    public ReminderClient(RestTemplate restTemplate,
+                          @Value("${reminder.service.base-url}") String reminderServiceBaseUrl) {
+        this.restTemplate = restTemplate;
+        this.reminderServiceBaseUrl = reminderServiceBaseUrl;
+    }
 
+    public List<ReminderResponse> getRemindersForTask(UUID taskId) {
+        String url = reminderServiceBaseUrl + "/reminders/{taskId}";
         ReminderResponse[] response = restTemplate.getForObject(
-                url,
-                ReminderResponse[].class,
-                taskId
-        );
+                url, ReminderResponse[].class, taskId);
         return response != null ? Arrays.asList(response) : List.of();
     }
 }

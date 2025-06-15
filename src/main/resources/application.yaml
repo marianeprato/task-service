@@ -8,4 +8,4 @@ server:
   port: 8080
 reminder:
   service:
-    base-url=http://localhost:8081:
+    base-url: http://localhost:8081
