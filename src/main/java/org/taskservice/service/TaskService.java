@@ -1,5 +1,6 @@
 package org.taskservice.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -19,10 +20,16 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final RestTemplate restTemplate;
+    private final String reminderServiceBaseUrl;
 
-    public TaskService(TaskRepository taskRepository, RestTemplate restTemplate) {
+    public TaskService(
+            TaskRepository taskRepository,
+            RestTemplate restTemplate,
+            @Value("${reminder.service.base-url}") String reminderServiceBaseUrl
+    ) {
         this.taskRepository = taskRepository;
         this.restTemplate = restTemplate;
+        this.reminderServiceBaseUrl = reminderServiceBaseUrl;
     }
 
     public List<Task> getTasks() {
@@ -50,16 +57,17 @@ public class TaskService {
         );
 
         taskRepository.save(newTask);
-
-
         triggerReminder(newTask);
     }
 
     @Async
     public void triggerReminder(Task task) {
-        ReminderRequest reminderRequest = new ReminderRequest(task.taskId(), "Reminder for task: " + task.taskTitle());
-        String reminderServiceUrl = "http://localhost:8081/reminders";
-        restTemplate.postForEntity(reminderServiceUrl, reminderRequest, Void.class);
+        ReminderRequest reminderRequest = new ReminderRequest(
+                task.taskId(),
+                "Reminder for task: " + task.taskTitle()
+        );
+        String reminderEndpoint = reminderServiceBaseUrl + "/reminders";
+        restTemplate.postForEntity(reminderEndpoint, reminderRequest, Void.class);
     }
 
 }
