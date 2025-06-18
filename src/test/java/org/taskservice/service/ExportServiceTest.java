@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.taskservice.client.ReminderClient;
 import org.taskservice.dto.ReminderResponse;
 import org.taskservice.model.Task;
+import org.taskservice.model.TaskPriority;
 import org.taskservice.repository.TaskRepository;
 
 import java.io.ByteArrayInputStream;
@@ -43,14 +44,14 @@ class ExportServiceTest {
     private ExportService exportService;
 
     private static Stream<Arguments> reminderScenarios() {
-        final Task task1 = new Task(UUID.randomUUID(), "Test Task", "Test Desc", LocalDate.now(), LocalDate.now().plusDays(5));
+        final Task task1 = new Task(UUID.randomUUID(), "Test Task", "Test Desc", LocalDate.now(), LocalDate.now().plusDays(5), TaskPriority.MEDIUM);
         final ReminderResponse r1 = new ReminderResponse(1L, task1.taskId(), "First reminder");
         final ReminderResponse r2 = new ReminderResponse(2L, task1.taskId(), "Second reminder");
 
-        final Task task2 = new Task(UUID.randomUUID(), "Test Task", "Test Desc", LocalDate.now(), LocalDate.now().plusDays(5));
+        final Task task2 = new Task(UUID.randomUUID(), "Test Task", "Test Desc", LocalDate.now(), LocalDate.now().plusDays(5), TaskPriority.HIGH);
         final ReminderResponse r3 = new ReminderResponse(1L, task2.taskId(), "First reminder");
 
-        final Task task3 = new Task(UUID.randomUUID(), "Test Task", "Test Desc", LocalDate.now(), LocalDate.now().plusDays(5));
+        final Task task3 = new Task(UUID.randomUUID(), "Test Task", "Test Desc", LocalDate.now(), LocalDate.now().plusDays(5), TaskPriority.LOW);
 
         return Stream.of(
                 arguments(task3, List.<ReminderResponse>of(), 1, null, null),
@@ -93,7 +94,8 @@ class ExportServiceTest {
                 arguments(3, "Created"),
                 arguments(4, "Due"),
                 arguments(5, "Reminder ID"),
-                arguments(6, "Reminder Message")
+                arguments(6, "Reminder Message"),
+                arguments(7, "Priority")
         );
     }
 
@@ -103,7 +105,7 @@ class ExportServiceTest {
             final int idx,
             final String expected
     ) throws Exception {
-        final Task task = new Task(UUID.randomUUID(), "X", "Y", LocalDate.now(), LocalDate.now());
+        final Task task = new Task(UUID.randomUUID(), "X", "Y", LocalDate.now(), LocalDate.now(), TaskPriority.MEDIUM);
         when(taskRepository.findAll()).thenReturn(List.of(task));
         when(reminderClient.getRemindersForTask(task.taskId())).thenReturn(List.of());
 
@@ -116,7 +118,7 @@ class ExportServiceTest {
 
     @Test
     void generateExportReturnsNonEmptyByteArray() {
-        final Task task = new Task(UUID.randomUUID(), "Test Task", "Test Desc", LocalDate.now(), LocalDate.now().plusDays(5));
+        final Task task = new Task(UUID.randomUUID(), "Test Task", "Test Desc", LocalDate.now(), LocalDate.now().plusDays(5), TaskPriority.MEDIUM);
         when(taskRepository.findAll()).thenReturn(List.of(task));
         when(reminderClient.getRemindersForTask(task.taskId())).thenReturn(List.of());
 
@@ -138,8 +140,8 @@ class ExportServiceTest {
 
     @Test
     void generatesExcelWithMultipleTasksMixedReminders() throws Exception {
-        final Task taskA = new Task(UUID.randomUUID(), "Task A", "Desc A", LocalDate.of(2025, 1, 1), LocalDate.of(2025, 1, 2));
-        final Task taskB = new Task(UUID.randomUUID(), "Task B", "Desc B", LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 2));
+        final Task taskA = new Task(UUID.randomUUID(), "Task A", "Desc A", LocalDate.of(2025, 1, 1), LocalDate.of(2025, 1, 2), TaskPriority.LOW);
+        final Task taskB = new Task(UUID.randomUUID(), "Task B", "Desc B", LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 2), TaskPriority.HIGH);
         final ReminderResponse b1 = new ReminderResponse(10L, taskB.taskId(), "Rem B1");
         final ReminderResponse b2 = new ReminderResponse(20L, taskB.taskId(), "Rem B2");
 
@@ -156,16 +158,19 @@ class ExportServiceTest {
             final var rowA = sheet.getRow(1);
             assertThat(rowA.getCell(1).getStringCellValue()).isEqualTo("Task A");
             assertThat(rowA.getCell(6)).isNull();
+            assertThat(rowA.getCell(7).getStringCellValue()).isEqualTo("Low");
 
             final var rowB1 = sheet.getRow(2);
             assertThat(rowB1.getCell(1).getStringCellValue()).isEqualTo("Task B");
             assertThat((long) rowB1.getCell(5).getNumericCellValue()).isEqualTo(10L);
             assertThat(rowB1.getCell(6).getStringCellValue()).isEqualTo("Rem B1");
+            assertThat(rowB1.getCell(7).getStringCellValue()).isEqualTo("High");
 
             final var rowB2 = sheet.getRow(3);
             assertThat(rowB2.getCell(1).getStringCellValue()).isEqualTo("Task B");
             assertThat((long) rowB2.getCell(5).getNumericCellValue()).isEqualTo(20L);
             assertThat(rowB2.getCell(6).getStringCellValue()).isEqualTo("Rem B2");
+            assertThat(rowB2.getCell(7).getStringCellValue()).isEqualTo("High");
         }
     }
 
@@ -174,7 +179,7 @@ class ExportServiceTest {
         final UUID id = UUID.randomUUID();
         final LocalDate created = LocalDate.of(2025, 3, 3);
         final LocalDate due = LocalDate.of(2025, 3, 10);
-        final Task task = new Task(id, "PopTest", "PopDesc", created, due);
+        final Task task = new Task(id, "PopTest", "PopDesc", created, due, TaskPriority.MEDIUM);
 
         when(taskRepository.findAll()).thenReturn(List.of(task));
         when(reminderClient.getRemindersForTask(task.taskId())).thenReturn(List.of());
@@ -188,6 +193,7 @@ class ExportServiceTest {
             assertThat(row.getCell(2).getStringCellValue()).isEqualTo("PopDesc");
             assertThat(row.getCell(3).getStringCellValue()).isEqualTo(created.toString());
             assertThat(row.getCell(4).getStringCellValue()).isEqualTo(due.toString());
+            assertThat(row.getCell(7).getStringCellValue()).isEqualTo("Medium");
         }
     }
 
@@ -209,7 +215,7 @@ class ExportServiceTest {
     @ParameterizedTest
     @EnumSource(value = FailureScenario.class, names = "REMINDER")
     void generateExportFails_whenReminderServiceFails(final FailureScenario scenario) {
-        final Task task = new Task(UUID.randomUUID(), "ErrTest", "ErrDesc", LocalDate.now(), LocalDate.now().plusDays(1));
+        final Task task = new Task(UUID.randomUUID(), "ErrTest", "ErrDesc", LocalDate.now(), LocalDate.now().plusDays(1), TaskPriority.MEDIUM);
         when(taskRepository.findAll()).thenReturn(List.of(task));
         when(reminderClient.getRemindersForTask(task.taskId()))
                 .thenThrow(new RuntimeException("Reminder service down"));
@@ -221,7 +227,7 @@ class ExportServiceTest {
 
     @Test
     void generateExportFails_whenWorkbookWriteFails() throws Exception {
-        Task task = new Task(UUID.randomUUID(), "ErrTest", "ErrDesc", LocalDate.now(), LocalDate.now().plusDays(1));
+        Task task = new Task(UUID.randomUUID(), "ErrTest", "ErrDesc", LocalDate.now(), LocalDate.now().plusDays(1), TaskPriority.MEDIUM);
         when(taskRepository.findAll()).thenReturn(List.of(task));
         when(reminderClient.getRemindersForTask(task.taskId())).thenReturn(List.of());
 
@@ -233,6 +239,4 @@ class ExportServiceTest {
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Failed to generate Excel file");
     }
-
-
 }

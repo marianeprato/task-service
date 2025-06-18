@@ -10,8 +10,9 @@ import org.springframework.http.ResponseEntity;
 import org.taskservice.dto.CreateTaskRequest;
 import org.taskservice.dto.TaskResponse;
 import org.taskservice.exception.TaskValidationException;
-import org.taskservice.service.TaskService;
 import org.taskservice.model.Task;
+import org.taskservice.model.TaskPriority;
+import org.taskservice.service.TaskService;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -46,12 +47,14 @@ class TaskControllerTest {
                 "Sample Task",
                 "Sample description",
                 LocalDate.of(2025, 1, 1),
-                LocalDate.of(2025, 1, 10)
+                LocalDate.of(2025, 1, 10),
+                TaskPriority.MEDIUM
         );
         validRequest = new CreateTaskRequest(
                 "Title",
                 "Desc",
-                LocalDate.of(2025, 2, 15)
+                LocalDate.of(2025, 2, 15),
+                TaskPriority.MEDIUM
         );
     }
 
@@ -99,7 +102,7 @@ class TaskControllerTest {
         doThrow(new TaskValidationException("Bad data")).when(taskService).createTask(any());
 
         ResponseEntity<Void> response = taskController.createTask(
-                new CreateTaskRequest("","",LocalDate.now())
+                new CreateTaskRequest("", "", LocalDate.now(), null)
         );
 
         assertEquals(400, response.getStatusCodeValue());

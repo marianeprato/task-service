@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.taskservice.client.ReminderClient;
 import org.taskservice.dto.ReminderResponse;
 import org.taskservice.model.Task;
+import org.taskservice.model.TaskPriority;
 import org.taskservice.repository.TaskRepository;
 
 import java.io.ByteArrayOutputStream;
@@ -28,6 +29,7 @@ public class ExportService {
     private static final int COL_REMINDER_ID = 5;
     private static final int COL_REMINDER_MSG = 6;
     private static final String SHEET_NAME    = "Tasks & Reminders";
+    private static final int COL_PRIORITY = 7;
 
     private final TaskRepository taskRepository;
     private final ReminderClient reminderClient;
@@ -96,6 +98,7 @@ public class ExportService {
         header.createCell(COL_DUE).setCellValue("Due");
         header.createCell(COL_REMINDER_ID).setCellValue("Reminder ID");
         header.createCell(COL_REMINDER_MSG).setCellValue("Reminder Message");
+        header.createCell(COL_PRIORITY).setCellValue("Priority");
     }
 
     private static void fillTaskRow(Row row, Task task) {
@@ -104,5 +107,11 @@ public class ExportService {
         row.createCell(COL_DESCRIPTION).setCellValue(task.taskDescription());
         row.createCell(COL_CREATED).setCellValue(task.taskCreationDate().toString());
         row.createCell(COL_DUE).setCellValue(task.taskDueDate().toString());
+        row.createCell(COL_PRIORITY).setCellValue(formatPriority(task.priority()));
+    }
+
+    private static String formatPriority(TaskPriority priority) {
+        String lowerCase= priority.name().toLowerCase();
+        return Character.toUpperCase(lowerCase.charAt(0)) + lowerCase.substring(1);
     }
 }

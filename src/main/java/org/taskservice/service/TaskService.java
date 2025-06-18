@@ -8,6 +8,7 @@ import org.taskservice.dto.CreateTaskRequest;
 import org.taskservice.dto.ReminderRequest;
 import org.taskservice.exception.TaskValidationException;
 import org.taskservice.model.Task;
+import org.taskservice.model.TaskPriority;
 import org.taskservice.repository.TaskRepository;
 
 import java.time.LocalDate;
@@ -48,12 +49,17 @@ public class TaskService {
             throw new TaskValidationException("Due date cannot be in the past");
         }
 
-        Task newTask = new Task(
+        final TaskPriority priority = request.priority() != null
+                ? request.priority()
+                : TaskPriority.MEDIUM;
+
+        final Task newTask = new Task(
                 UUID.randomUUID(),
                 request.taskTitle(),
                 request.taskDescription(),
                 LocalDate.now(),
-                request.taskDueDate()
+                request.taskDueDate(),
+                priority
         );
 
         taskRepository.save(newTask);
