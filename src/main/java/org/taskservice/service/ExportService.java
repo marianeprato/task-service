@@ -107,11 +107,7 @@ public class ExportService {
         row.createCell(COL_DESCRIPTION).setCellValue(task.taskDescription());
         row.createCell(COL_CREATED).setCellValue(task.taskCreationDate().toString());
         row.createCell(COL_DUE).setCellValue(task.taskDueDate().toString());
-        row.createCell(COL_PRIORITY).setCellValue(formatPriority(task.priority()));
+        row.createCell(COL_PRIORITY).setCellValue(task.priority().getValue());
     }
 
-    private static String formatPriority(TaskPriority priority) {
-        String lowerCase= priority.name().toLowerCase();
-        return Character.toUpperCase(lowerCase.charAt(0)) + lowerCase.substring(1);
-    }
 }
