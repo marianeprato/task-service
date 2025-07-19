@@ -13,6 +13,7 @@ import org.taskservice.dto.CreateTaskRequest;
 import org.taskservice.dto.ReminderRequest;
 import org.taskservice.exception.TaskValidationException;
 import org.taskservice.model.Task;
+import org.taskservice.model.TaskPriority;
 import org.taskservice.repository.TaskRepository;
 
 import java.lang.reflect.Field;
@@ -57,8 +58,8 @@ class TaskServiceTest {
         final LocalDate creationDate = LocalDate.now();
         final LocalDate dueDate = creationDate.plusDays(5);
 
-        sampleTask = new Task(taskId, title, description, creationDate, dueDate);
-        validCreateRequest = new CreateTaskRequest(title, "Task description", dueDate);
+        sampleTask = new Task(taskId, title, description, creationDate, dueDate, TaskPriority.HIGH);
+        validCreateRequest = new CreateTaskRequest(title, "Task description", dueDate, TaskPriority.HIGH);
     }
 
     private String getReminderEndpoint() throws Exception {
@@ -119,7 +120,7 @@ class TaskServiceTest {
 
     @Test
     void shouldThrowExceptionForInvalidTaskTitle() {
-        final CreateTaskRequest invalidRequest = new CreateTaskRequest("", "Valid description", LocalDate.now().plusDays(1));
+        final CreateTaskRequest invalidRequest = new CreateTaskRequest("", "Valid description", LocalDate.now().plusDays(1), null);
 
         final TaskValidationException exception = assertThrows(
                 TaskValidationException.class,
@@ -130,7 +131,7 @@ class TaskServiceTest {
 
     @Test
     void shouldThrowExceptionForPastDueDate() {
-        final CreateTaskRequest invalidRequest = new CreateTaskRequest("Valid title", "Valid description", LocalDate.now().minusDays(1));
+        final CreateTaskRequest invalidRequest = new CreateTaskRequest("Valid title", "Valid description", LocalDate.now().minusDays(1), null);
 
         final TaskValidationException exception = assertThrows(
                 TaskValidationException.class,
@@ -154,5 +155,23 @@ class TaskServiceTest {
         final ReminderRequest reminderRequest = requestCaptor.getValue();
         assertEquals(sampleTask.taskId(), reminderRequest.getTaskId());
         assertTrue(reminderRequest.getMessage().contains("Reminder for task: " + sampleTask.taskTitle()));
+    }
+
+    @Test
+    void shouldCreateTaskWithProvidedPriority() {
+        CreateTaskRequest request = new CreateTaskRequest(
+                "High Priority Task",
+                "Important work",
+                LocalDate.now().plusDays(3),
+                TaskPriority.HIGH
+        );
+
+        taskService.createTask(request);
+
+        final ArgumentCaptor<Task> taskCaptor = ArgumentCaptor.forClass(Task.class);
+        verify(mockTaskRepository).save(taskCaptor.capture());
+
+        final Task savedTask = taskCaptor.getValue();
+        assertEquals(TaskPriority.HIGH, savedTask.priority());
     }
 }

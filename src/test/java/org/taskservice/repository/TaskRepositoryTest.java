@@ -3,6 +3,7 @@ package org.taskservice.repository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.taskservice.model.Task;
+import org.taskservice.model.TaskPriority;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -29,7 +30,8 @@ class TaskRepositoryTest {
                 "Sample Task",
                 "Sample description",
                 LocalDate.now(),
-                LocalDate.now().plusDays(3)
+                LocalDate.now().plusDays(3),
+                TaskPriority.MEDIUM
         );
 
         taskRepository.save(task);
@@ -54,14 +56,16 @@ class TaskRepositoryTest {
                 "First Task",
                 "First description",
                 LocalDate.now(),
-                LocalDate.now().plusDays(1)
+                LocalDate.now().plusDays(1),
+                TaskPriority.MEDIUM
         );
         Task second = new Task(
                 UUID.randomUUID(),
                 "Second Task",
                 "Second description",
                 LocalDate.now(),
-                LocalDate.now().plusDays(2)
+                LocalDate.now().plusDays(2),
+                TaskPriority.MEDIUM
         );
 
         taskRepository.save(first);
@@ -82,7 +86,8 @@ class TaskRepositoryTest {
                 "Original Task",
                 "Original description",
                 LocalDate.now(),
-                LocalDate.now().plusDays(1)
+                LocalDate.now().plusDays(1),
+                TaskPriority.MEDIUM
         );
         taskRepository.save(original);
 
@@ -91,7 +96,8 @@ class TaskRepositoryTest {
                 "Updated Task",
                 "Updated description",
                 LocalDate.now(),
-                LocalDate.now().plusDays(5)
+                LocalDate.now().plusDays(5),
+                TaskPriority.HIGH
         );
         taskRepository.save(updated);
 
