@@ -25,14 +25,14 @@ class TaskRepositoryTest {
     @Test
     void shouldSaveAndFindById() {
         UUID id = UUID.randomUUID();
-        Task task = new Task(
-                id,
-                "Sample Task",
-                "Sample description",
-                LocalDate.now(),
-                LocalDate.now().plusDays(3),
-                TaskPriority.MEDIUM
-        );
+
+        Task task = Task.builder()
+                .taskId(id)
+                .taskTitle("Task Title")
+                .taskDescription("Desc")
+                .taskDueDate(LocalDate.now().plusDays(3))
+                .priority(TaskPriority.MEDIUM)
+                .build();
 
         taskRepository.save(task);
         Task found = taskRepository.findById(id);

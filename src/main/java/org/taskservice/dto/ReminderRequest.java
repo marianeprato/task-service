@@ -1,7 +1,11 @@
 package org.taskservice.dto;
 
-import java.util.UUID;
+import lombok.Builder;
+import lombok.Getter;
 
+import java.util.UUID;
+@Getter
+@Builder
 public class ReminderRequest {
     private UUID taskId;
     private String message;
@@ -10,7 +14,4 @@ public class ReminderRequest {
         this.taskId = taskId;
         this.message = message;
     }
-
-    public UUID getTaskId() { return taskId; }
-    public String getMessage() { return message; }
 }

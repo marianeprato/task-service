@@ -53,14 +53,14 @@ public class TaskService {
                 ? request.priority()
                 : TaskPriority.MEDIUM;
 
-        final Task newTask = new Task(
-                UUID.randomUUID(),
-                request.taskTitle(),
-                request.taskDescription(),
-                LocalDate.now(),
-                request.taskDueDate(),
-                priority
-        );
+        final Task newTask = Task.builder()
+                .taskId(UUID.randomUUID())
+                .taskTitle(request.taskTitle())
+                .taskDescription(request.taskDescription())
+                .taskCreationDate(LocalDate.now())
+                .taskDueDate(request.taskDueDate())
+                .priority(priority)
+                .build();
 
         taskRepository.save(newTask);
         triggerReminder(newTask);
@@ -68,10 +68,10 @@ public class TaskService {
 
     @Async
     public void triggerReminder(Task task) {
-        ReminderRequest reminderRequest = new ReminderRequest(
-                task.taskId(),
-                "Reminder for task: " + task.taskTitle()
-        );
+        ReminderRequest reminderRequest = ReminderRequest.builder()
+                .taskId(task.taskId())
+                .message("Reminder for task: " + task.taskTitle())
+                .build();
         String reminderEndpoint = reminderServiceBaseUrl + "/reminders";
         restTemplate.postForEntity(reminderEndpoint, reminderRequest, Void.class);
     }

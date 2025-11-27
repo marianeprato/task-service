@@ -42,20 +42,21 @@ class TaskControllerTest {
 
     @BeforeEach
     void init() {
-        sampleTask = new Task(
-                UUID.randomUUID(),
-                "Sample Task",
-                "Sample description",
-                LocalDate.of(2025, 1, 1),
-                LocalDate.of(2025, 1, 10),
-                TaskPriority.MEDIUM
-        );
-        validRequest = new CreateTaskRequest(
-                "Title",
-                "Desc",
-                LocalDate.of(2025, 2, 15),
-                TaskPriority.MEDIUM
-        );
+        sampleTask = Task.builder()
+                .taskId(UUID.randomUUID())
+                .taskTitle("Sample Task")
+                .taskDescription("Sample description")
+                .taskCreationDate(LocalDate.of(2025, 1, 1))
+                .taskDueDate(LocalDate.of(2025, 1, 10))
+                .priority(TaskPriority.MEDIUM)
+                .build();
+
+        validRequest = CreateTaskRequest.builder()
+                .taskTitle("Title")
+                .taskDescription("Desc")
+                .taskDueDate(LocalDate.of(2025, 2, 15))
+                .priority(TaskPriority.MEDIUM)
+                .build();
     }
 
     @Test
@@ -64,7 +65,7 @@ class TaskControllerTest {
 
         ResponseEntity<List<TaskResponse>> response = taskController.getTasks();
 
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(200, response.getStatusCode().value());
         assertNotNull(response.getBody());
         assertTrue(response.getBody().isEmpty(), "Body should be empty when no tasks");
         verify(taskService, times(1)).getTasks();
@@ -77,10 +78,10 @@ class TaskControllerTest {
         ResponseEntity<List<TaskResponse>> response = taskController.getTasks();
         List<TaskResponse> body = response.getBody();
 
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(200, response.getStatusCode().value());
         assertNotNull(body);
         assertEquals(1, body.size());
-        TaskResponse tr = body.get(0);
+        TaskResponse tr = body.getFirst();
         assertEquals(sampleTask.taskId(), tr.taskId(), "ID should match");
         assertEquals(sampleTask.taskTitle(), tr.taskTitle(), "Title should match");
         assertEquals(sampleTask.taskDescription(), tr.taskDescription(), "Description should match");
@@ -92,7 +93,7 @@ class TaskControllerTest {
     void createTask_noBodyAndServiceCalled() {
         ResponseEntity<Void> response = taskController.createTask(validRequest);
 
-        assertEquals(201, response.getStatusCodeValue());
+        assertEquals(201, response.getStatusCode().value());
         assertNull(response.getBody(), "Response body should be null for CREATED");
         verify(taskService, times(1)).createTask(validRequest);
     }
@@ -105,7 +106,7 @@ class TaskControllerTest {
                 new CreateTaskRequest("", "", LocalDate.now(), null)
         );
 
-        assertEquals(400, response.getStatusCodeValue());
+        assertEquals(400, response.getStatusCode().value());
         assertNull(response.getBody(), "Response body should be null for BAD_REQUEST");
         verify(taskService, times(1)).createTask(any());
     }

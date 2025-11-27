@@ -1,10 +1,12 @@
 package org.taskservice.dto;
 
+import lombok.Builder;
 import org.taskservice.model.Task;
 
 import java.time.LocalDate;
 import java.util.UUID;
 
+@Builder
 public record TaskResponse(
         UUID taskId,
         String taskTitle,
@@ -13,12 +15,12 @@ public record TaskResponse(
         LocalDate taskDueDate
 ) {
     public static TaskResponse from(Task task) {
-        return new TaskResponse(
-                task.taskId(),
-                task.taskTitle(),
-                task.taskDescription(),
-                task.taskCreationDate(),
-                task.taskDueDate()
-        );
+        return TaskResponse.builder()
+                .taskId(task.taskId())
+                .taskTitle(task.taskTitle())
+                .taskDescription(task.taskDescription())
+                .taskCreationDate(task.taskCreationDate())
+                .taskDueDate(task.taskDueDate())
+                .build();
     }
 }
