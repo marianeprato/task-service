@@ -1,9 +1,9 @@
 package org.taskservice.model;
 
-import lombok.Builder;
-
 import java.time.LocalDate;
 import java.util.UUID;
+
+import lombok.Builder;
 
 @Builder
 public record Task(
@@ -12,5 +12,4 @@ public record Task(
         String taskDescription,
         LocalDate taskCreationDate,
         LocalDate taskDueDate,
-        TaskPriority priority
-) {}
+        TaskPriority priority) {}

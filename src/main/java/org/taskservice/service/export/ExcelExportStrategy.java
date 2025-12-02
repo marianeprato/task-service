@@ -1,25 +1,23 @@
-package org.taskservice.service;
-
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.springframework.stereotype.Service;
-import org.taskservice.client.ReminderClient;
-import org.taskservice.dto.ReminderResponse;
-import org.taskservice.model.Task;
-import org.taskservice.model.TaskPriority;
-import org.taskservice.repository.TaskRepository;
+package org.taskservice.service.export;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.http.MediaType;
+import org.taskservice.client.ReminderClient;
+import org.taskservice.dto.ReminderResponse;
+import org.taskservice.model.Task;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 @Slf4j
-@Service
 @RequiredArgsConstructor
-public class ExportService {
+public class ExcelExportStrategy implements ExportStrategy {
 
     private static final int COL_TASK_ID = 0;
     private static final int COL_TITLE = 1;
@@ -28,20 +26,17 @@ public class ExportService {
     private static final int COL_DUE = 4;
     private static final int COL_REMINDER_ID = 5;
     private static final int COL_REMINDER_MSG = 6;
-    private static final String SHEET_NAME    = "Tasks & Reminders";
+    static final String SHEET_NAME = "Tasks & Reminders";
     private static final int COL_PRIORITY = 7;
 
-    private final TaskRepository taskRepository;
     private final ReminderClient reminderClient;
 
-    public byte[] generateExport() {
-        List<Task> tasks = taskRepository.findAll();
+    @Override
+    public byte[] export(List<Task> tasks) {
         log.info("Generating export for {} tasks", tasks.size());
 
-        try (
-                XSSFWorkbook workbook = new XSSFWorkbook();
-             ByteArrayOutputStream out = new ByteArrayOutputStream()
-        ) {
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet(SHEET_NAME);
             createHeader(sheet);
             populateRows(sheet, tasks, 1);
@@ -51,6 +46,16 @@ public class ExportService {
             log.error("Failed to generate Excel file", e);
             throw new RuntimeException("Failed to generate Excel file", e);
         }
+    }
+
+    @Override
+    public String getFileExtension() {
+        return ".xlsx";
+    }
+
+    @Override
+    public MediaType getMediaType() {
+        return MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }
 
     void writeWorkbook(XSSFWorkbook workbook, ByteArrayOutputStream out) throws IOException {
@@ -66,9 +71,8 @@ public class ExportService {
             if (reminders.isEmpty()) {
                 rowIndex[0] = writeTaskOnlyRow(sheet, task, rowIndex[0]);
             } else {
-                reminders.forEach(reminder ->
-                        rowIndex[0] = writeTaskWithReminderRow(sheet, task, reminder, rowIndex[0])
-                );
+                reminders.forEach(
+                        reminder -> rowIndex[0] = writeTaskWithReminderRow(sheet, task, reminder, rowIndex[0]));
             }
         });
 
@@ -109,5 +113,4 @@ public class ExportService {
         row.createCell(COL_DUE).setCellValue(task.taskDueDate().toString());
         row.createCell(COL_PRIORITY).setCellValue(task.priority().getValue());
     }
-
 }

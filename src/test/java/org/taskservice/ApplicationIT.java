@@ -1,11 +1,12 @@
 package org.taskservice;
 
-import io.restassured.RestAssured;
+import static org.hamcrest.Matchers.equalTo;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
-import static org.hamcrest.Matchers.equalTo;
+import io.restassured.RestAssured;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class ApplicationIT {
@@ -13,8 +14,7 @@ public class ApplicationIT {
     int port;
 
     @Test
-    void contextLoads() {
-    }
+    void contextLoads() {}
 
     @Test
     void testHealthCheck() {

@@ -1,5 +1,19 @@
 package org.taskservice.controller;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,20 +27,6 @@ import org.taskservice.exception.TaskValidationException;
 import org.taskservice.model.Task;
 import org.taskservice.model.TaskPriority;
 import org.taskservice.service.TaskService;
-
-import java.time.LocalDate;
-import java.util.List;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.times;
-import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
 class TaskControllerTest {
@@ -102,9 +102,7 @@ class TaskControllerTest {
     void createTask_validationException_logsAndReturnsBadRequest() {
         doThrow(new TaskValidationException("Bad data")).when(taskService).createTask(any());
 
-        ResponseEntity<Void> response = taskController.createTask(
-                new CreateTaskRequest("", "", LocalDate.now(), null)
-        );
+        ResponseEntity<Void> response = taskController.createTask(new CreateTaskRequest("", "", LocalDate.now(), null));
 
         assertEquals(400, response.getStatusCode().value());
         assertNull(response.getBody(), "Response body should be null for BAD_REQUEST");

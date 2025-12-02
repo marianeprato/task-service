@@ -1,5 +1,24 @@
 package org.taskservice.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.lang.reflect.Field;
+import java.time.LocalDate;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,25 +34,6 @@ import org.taskservice.exception.TaskValidationException;
 import org.taskservice.model.Task;
 import org.taskservice.model.TaskPriority;
 import org.taskservice.repository.TaskRepository;
-
-import java.lang.reflect.Field;
-import java.time.LocalDate;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class TaskServiceTest {
@@ -120,23 +120,21 @@ class TaskServiceTest {
 
     @Test
     void shouldThrowExceptionForInvalidTaskTitle() {
-        final CreateTaskRequest invalidRequest = new CreateTaskRequest("", "Valid description", LocalDate.now().plusDays(1), null);
+        final CreateTaskRequest invalidRequest =
+                new CreateTaskRequest("", "Valid description", LocalDate.now().plusDays(1), null);
 
-        final TaskValidationException exception = assertThrows(
-                TaskValidationException.class,
-                () -> taskService.createTask(invalidRequest)
-        );
+        final TaskValidationException exception =
+                assertThrows(TaskValidationException.class, () -> taskService.createTask(invalidRequest));
         assertEquals("Task title cannot be empty", exception.getMessage());
     }
 
     @Test
     void shouldThrowExceptionForPastDueDate() {
-        final CreateTaskRequest invalidRequest = new CreateTaskRequest("Valid title", "Valid description", LocalDate.now().minusDays(1), null);
+        final CreateTaskRequest invalidRequest = new CreateTaskRequest(
+                "Valid title", "Valid description", LocalDate.now().minusDays(1), null);
 
-        final TaskValidationException exception = assertThrows(
-                TaskValidationException.class,
-                () -> taskService.createTask(invalidRequest)
-        );
+        final TaskValidationException exception =
+                assertThrows(TaskValidationException.class, () -> taskService.createTask(invalidRequest));
         assertEquals("Due date cannot be in the past", exception.getMessage());
     }
 
@@ -160,11 +158,7 @@ class TaskServiceTest {
     @Test
     void shouldCreateTaskWithProvidedPriority() {
         CreateTaskRequest request = new CreateTaskRequest(
-                "High Priority Task",
-                "Important work",
-                LocalDate.now().plusDays(3),
-                TaskPriority.HIGH
-        );
+                "High Priority Task", "Important work", LocalDate.now().plusDays(3), TaskPriority.HIGH);
 
         taskService.createTask(request);
 

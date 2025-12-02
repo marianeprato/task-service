@@ -1,17 +1,17 @@
 package org.taskservice.repository;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.taskservice.model.Task;
-import org.taskservice.model.TaskPriority;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.taskservice.model.Task;
+import org.taskservice.model.TaskPriority;
 
 class TaskRepositoryTest {
 
@@ -57,16 +57,14 @@ class TaskRepositoryTest {
                 "First description",
                 LocalDate.now(),
                 LocalDate.now().plusDays(1),
-                TaskPriority.MEDIUM
-        );
+                TaskPriority.MEDIUM);
         Task second = new Task(
                 UUID.randomUUID(),
                 "Second Task",
                 "Second description",
                 LocalDate.now(),
                 LocalDate.now().plusDays(2),
-                TaskPriority.MEDIUM
-        );
+                TaskPriority.MEDIUM);
 
         taskRepository.save(first);
         taskRepository.save(second);
@@ -87,8 +85,7 @@ class TaskRepositoryTest {
                 "Original description",
                 LocalDate.now(),
                 LocalDate.now().plusDays(1),
-                TaskPriority.MEDIUM
-        );
+                TaskPriority.MEDIUM);
         taskRepository.save(original);
 
         Task updated = new Task(
@@ -97,8 +94,7 @@ class TaskRepositoryTest {
                 "Updated description",
                 LocalDate.now(),
                 LocalDate.now().plusDays(5),
-                TaskPriority.HIGH
-        );
+                TaskPriority.HIGH);
         taskRepository.save(updated);
 
         Task found = taskRepository.findById(id);

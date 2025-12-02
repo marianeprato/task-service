@@ -1,5 +1,10 @@
 package org.taskservice.service;
 
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -11,11 +16,6 @@ import org.taskservice.model.Task;
 import org.taskservice.model.TaskPriority;
 import org.taskservice.repository.TaskRepository;
 
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
 @Service
 public class TaskService {
 
@@ -26,8 +26,7 @@ public class TaskService {
     public TaskService(
             TaskRepository taskRepository,
             RestTemplate restTemplate,
-            @Value("${reminder.service.base-url}") String reminderServiceBaseUrl
-    ) {
+            @Value("${reminder.service.base-url}") String reminderServiceBaseUrl) {
         this.taskRepository = taskRepository;
         this.restTemplate = restTemplate;
         this.reminderServiceBaseUrl = reminderServiceBaseUrl;
@@ -49,9 +48,7 @@ public class TaskService {
             throw new TaskValidationException("Due date cannot be in the past");
         }
 
-        final TaskPriority priority = request.priority() != null
-                ? request.priority()
-                : TaskPriority.MEDIUM;
+        final TaskPriority priority = request.priority() != null ? request.priority() : TaskPriority.MEDIUM;
 
         final Task newTask = Task.builder()
                 .taskId(UUID.randomUUID())
@@ -75,5 +72,4 @@ public class TaskService {
         String reminderEndpoint = reminderServiceBaseUrl + "/reminders";
         restTemplate.postForEntity(reminderEndpoint, reminderRequest, Void.class);
     }
-
 }

@@ -1,12 +1,8 @@
 package org.taskservice.dto;
 
-import lombok.Builder;
-
 import java.util.UUID;
 
+import lombok.Builder;
+
 @Builder
-public record ReminderResponse(
-        long reminderId,
-        UUID taskId,
-        String message
-) {}
+public record ReminderResponse(long reminderId, UUID taskId, String message) {}

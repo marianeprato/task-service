@@ -1,7 +1,7 @@
 package org.taskservice.controller;
 
-import jakarta.validation.Valid;
-import lombok.extern.slf4j.Slf4j;
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,7 +14,8 @@ import org.taskservice.dto.TaskResponse;
 import org.taskservice.exception.TaskValidationException;
 import org.taskservice.service.TaskService;
 
-import java.util.List;
+import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RestController
@@ -30,16 +31,13 @@ public class TaskController {
     @GetMapping
     public ResponseEntity<List<TaskResponse>> getTasks() {
         log.info("Get all tasks request received");
-        final List<TaskResponse> list = taskService.getTasks()
-                .stream()
-                .map(TaskResponse::from)
-                .toList();
+        final List<TaskResponse> list =
+                taskService.getTasks().stream().map(TaskResponse::from).toList();
         return ResponseEntity.ok(list);
     }
 
     @PostMapping
-    public ResponseEntity<Void> createTask(
-            @RequestBody @Valid final CreateTaskRequest createTaskRequest) {
+    public ResponseEntity<Void> createTask(@RequestBody @Valid final CreateTaskRequest createTaskRequest) {
         log.info("Create task request received");
         try {
             taskService.createTask(createTaskRequest);
@@ -49,5 +47,4 @@ public class TaskController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
     }
-
 }

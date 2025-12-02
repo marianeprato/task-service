@@ -1,17 +1,20 @@
 package org.taskservice.controller;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.taskservice.service.ExportService;
-
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.taskservice.service.export.ExportResult;
+import org.taskservice.service.export.ExportService;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RestController
@@ -19,28 +22,30 @@ import java.time.format.DateTimeFormatter;
 @RequiredArgsConstructor
 public class ExportController {
 
-    private static final DateTimeFormatter TIMESTAMP_FMT =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
+    private static final DateTimeFormatter TIMESTAMP_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
 
     private final ExportService exportService;
 
-    @GetMapping("/xlsx")
-    public ResponseEntity<byte[]> exportTasksToExcel() {
-        log.info("Export endpoint /xlsx called");
+    @GetMapping("/{format}")
+    public ResponseEntity<byte[]> exportTasks(@PathVariable String format) {
+        log.info("Export endpoint called for format: {}", format);
 
-        final byte[] excelFile = exportService.generateExport();
-        final String filename = buildFileName();
+        ExportResult result = exportService.generateExport(format);
+
+        String filename = buildFileName(result.fileExtension());
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
-                .contentType(MediaType.parseMediaType(
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .body(excelFile);
+                .contentType(result.mediaType())
+                .body(result.content());
     }
 
-    private static String buildFileName() {
-        return "tasks_and_reminders_"
-                + LocalDateTime.now().format(TIMESTAMP_FMT)
-                + ".xlsx";
+    private static String buildFileName(String fileExtension) {
+        return "tasks_and_reminders_" + LocalDateTime.now().format(TIMESTAMP_FMT) + fileExtension;
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<String> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity.badRequest().body(ex.getMessage());
     }
 }

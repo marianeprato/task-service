@@ -1,242 +1,107 @@
 package org.taskservice.service;
 
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.taskservice.client.ReminderClient;
-import org.taskservice.dto.ReminderResponse;
+import org.springframework.http.MediaType;
 import org.taskservice.model.Task;
-import org.taskservice.model.TaskPriority;
 import org.taskservice.repository.TaskRepository;
-
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.when;
+import org.taskservice.service.export.ExportResult;
+import org.taskservice.service.export.ExportService;
+import org.taskservice.service.export.ExportStrategy;
 
 @ExtendWith(MockitoExtension.class)
 class ExportServiceTest {
 
     @Mock
-    private TaskRepository taskRepository;
+    private TaskRepository mockTaskRepository;
 
     @Mock
-    private ReminderClient reminderClient;
+    private ExportStrategy mockXlsxStrategy;
 
-    @InjectMocks
+    @Mock
+    private ExportStrategy mockCsvStrategy;
+
+    @Mock
+    private ExportStrategy mockPdfStrategy;
+
     private ExportService exportService;
 
-    private static Stream<Arguments> reminderScenarios() {
-        final Task task1 = new Task(UUID.randomUUID(), "Test Task", "Test Desc", LocalDate.now(), LocalDate.now().plusDays(5), TaskPriority.MEDIUM);
-        final ReminderResponse r1 = new ReminderResponse(1L, task1.taskId(), "First reminder");
-        final ReminderResponse r2 = new ReminderResponse(2L, task1.taskId(), "Second reminder");
+    private Map<String, ExportStrategy> strategyMap;
 
-        final Task task2 = new Task(UUID.randomUUID(), "Test Task", "Test Desc", LocalDate.now(), LocalDate.now().plusDays(5), TaskPriority.HIGH);
-        final ReminderResponse r3 = new ReminderResponse(1L, task2.taskId(), "First reminder");
+    @BeforeEach
+    void setUp() {
+        strategyMap = Map.of(
+                "xlsxExportStrategy", mockXlsxStrategy,
+                "csvExportStrategy", mockCsvStrategy,
+                "pdfExportStrategy", mockPdfStrategy);
+        exportService = new ExportService(mockTaskRepository, strategyMap);
+    }
 
-        final Task task3 = new Task(UUID.randomUUID(), "Test Task", "Test Desc", LocalDate.now(), LocalDate.now().plusDays(5), TaskPriority.LOW);
-
+    private static Stream<Arguments> strategyProvider() {
         return Stream.of(
-                arguments(task3, List.<ReminderResponse>of(), 1, null, null),
-                arguments(task2, List.of(r3), 1, 1L, "First reminder"),
-                arguments(task1, List.of(r1, r2), 2, null, null)
-        );
+                Arguments.of("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".xlsx"),
+                Arguments.of("csv", "text/plain", ".csv"),
+                Arguments.of("pdf", "application/pdf", ".pdf"));
     }
 
     @ParameterizedTest
-    @MethodSource("reminderScenarios")
-    void generatesExcelForVariousReminderScenarios(
-            final Task task,
-            final List<ReminderResponse> reminders,
-            final int expectedLastRowNum,
-            final Long expectedReminderId,
-            final String expectedReminderMsg
-    ) throws Exception {
-        when(taskRepository.findAll()).thenReturn(List.of(task));
-        when(reminderClient.getRemindersForTask(task.taskId())).thenReturn(reminders);
+    @MethodSource("strategyProvider")
+    void shouldSelectAndExecuteCorrectStrategy(String format, String mediaTypeString, String expectedExtension) {
+        String strategyName = format + "ExportStrategy";
+        ExportStrategy mockStrategy = strategyMap.get(strategyName);
+        MediaType expectedMediaType = MediaType.parseMediaType(mediaTypeString);
 
-        final byte[] data = exportService.generateExport();
-        try (final XSSFWorkbook wb = new XSSFWorkbook(new ByteArrayInputStream(data))) {
-            final var sheet = wb.getSheet("Tasks & Reminders");
-            assertThat(sheet).isNotNull();
-            assertThat(sheet.getLastRowNum()).isEqualTo(expectedLastRowNum);
+        List<Task> tasks = Collections.singletonList(mock(Task.class));
+        byte[] expectedContent = (format + "-data").getBytes();
 
-            if (expectedReminderId != null) {
-                final var row = sheet.getRow(1);
-                assertThat((long) row.getCell(5).getNumericCellValue()).isEqualTo(expectedReminderId);
-                assertThat(row.getCell(6).getStringCellValue()).isEqualTo(expectedReminderMsg);
-            }
-        }
-    }
+        when(mockTaskRepository.findAll()).thenReturn(tasks);
+        when(mockStrategy.export(tasks)).thenReturn(expectedContent);
+        when(mockStrategy.getMediaType()).thenReturn(expectedMediaType);
+        when(mockStrategy.getFileExtension()).thenReturn(expectedExtension);
 
-    private static Stream<Arguments> headerCells() {
-        return Stream.of(
-                arguments(0, "Task ID"),
-                arguments(1, "Title"),
-                arguments(2, "Description"),
-                arguments(3, "Created"),
-                arguments(4, "Due"),
-                arguments(5, "Reminder ID"),
-                arguments(6, "Reminder Message"),
-                arguments(7, "Priority")
-        );
-    }
+        ExportResult result = exportService.generateExport(format);
 
-    @ParameterizedTest
-    @MethodSource("headerCells")
-    void headerCellIsCorrect(
-            final int idx,
-            final String expected
-    ) throws Exception {
-        final Task task = new Task(UUID.randomUUID(), "X", "Y", LocalDate.now(), LocalDate.now(), TaskPriority.MEDIUM);
-        when(taskRepository.findAll()).thenReturn(List.of(task));
-        when(reminderClient.getRemindersForTask(task.taskId())).thenReturn(List.of());
+        assertNotNull(result);
+        assertArrayEquals(expectedContent, result.content());
+        assertEquals(expectedExtension, result.fileExtension());
+        assertEquals(expectedMediaType, result.mediaType());
 
-        final byte[] data = exportService.generateExport();
-        try (final XSSFWorkbook wb = new XSSFWorkbook(new ByteArrayInputStream(data))) {
-            final var cell = wb.getSheet("Tasks & Reminders").getRow(0).getCell(idx);
-            assertThat(cell.getStringCellValue()).isEqualTo(expected);
-        }
+        verify(mockStrategy, times(1)).export(tasks);
+
+        strategyMap.entrySet().stream()
+                .filter(entry -> !entry.getKey().equals(strategyName))
+                .forEach(entry -> verify(entry.getValue(), never()).export(any()));
     }
 
     @Test
-    void generateExportReturnsNonEmptyByteArray() {
-        final Task task = new Task(UUID.randomUUID(), "Test Task", "Test Desc", LocalDate.now(), LocalDate.now().plusDays(5), TaskPriority.MEDIUM);
-        when(taskRepository.findAll()).thenReturn(List.of(task));
-        when(reminderClient.getRemindersForTask(task.taskId())).thenReturn(List.of());
+    void shouldThrowExceptionWhenFormatIsUnsupported() {
+        String unsupportedFormat = "unsupported";
 
-        final byte[] result = exportService.generateExport();
-        assertThat(result).isNotNull().isNotEmpty();
-    }
+        IllegalArgumentException exception =
+                assertThrows(IllegalArgumentException.class, () -> exportService.generateExport(unsupportedFormat));
 
-    @Test
-    void generatesExcelWhenNoTasks() throws Exception {
-        when(taskRepository.findAll()).thenReturn(List.of());
-
-        final byte[] data = exportService.generateExport();
-        try (final XSSFWorkbook wb = new XSSFWorkbook(new ByteArrayInputStream(data))) {
-            final var sheet = wb.getSheet("Tasks & Reminders");
-            assertThat(sheet).isNotNull();
-            assertThat(sheet.getLastRowNum()).isEqualTo(0);
-        }
-    }
-
-    @Test
-    void generatesExcelWithMultipleTasksMixedReminders() throws Exception {
-        final Task taskA = new Task(UUID.randomUUID(), "Task A", "Desc A", LocalDate.of(2025, 1, 1), LocalDate.of(2025, 1, 2), TaskPriority.LOW);
-        final Task taskB = new Task(UUID.randomUUID(), "Task B", "Desc B", LocalDate.of(2025, 2, 1), LocalDate.of(2025, 2, 2), TaskPriority.HIGH);
-        final ReminderResponse b1 = new ReminderResponse(10L, taskB.taskId(), "Rem B1");
-        final ReminderResponse b2 = new ReminderResponse(20L, taskB.taskId(), "Rem B2");
-
-        when(taskRepository.findAll()).thenReturn(List.of(taskA, taskB));
-        when(reminderClient.getRemindersForTask(taskA.taskId())).thenReturn(List.of());
-        when(reminderClient.getRemindersForTask(taskB.taskId())).thenReturn(List.of(b1, b2));
-
-        final byte[] data = exportService.generateExport();
-        try (final XSSFWorkbook wb = new XSSFWorkbook(new ByteArrayInputStream(data))) {
-            final var sheet = wb.getSheet("Tasks & Reminders");
-            assertThat(sheet).isNotNull();
-            assertThat(sheet.getLastRowNum()).isEqualTo(3);
-
-            final var rowA = sheet.getRow(1);
-            assertThat(rowA.getCell(1).getStringCellValue()).isEqualTo("Task A");
-            assertThat(rowA.getCell(6)).isNull();
-            assertThat(rowA.getCell(7).getStringCellValue()).isEqualTo("Low");
-
-            final var rowB1 = sheet.getRow(2);
-            assertThat(rowB1.getCell(1).getStringCellValue()).isEqualTo("Task B");
-            assertThat((long) rowB1.getCell(5).getNumericCellValue()).isEqualTo(10L);
-            assertThat(rowB1.getCell(6).getStringCellValue()).isEqualTo("Rem B1");
-            assertThat(rowB1.getCell(7).getStringCellValue()).isEqualTo("High");
-
-            final var rowB2 = sheet.getRow(3);
-            assertThat(rowB2.getCell(1).getStringCellValue()).isEqualTo("Task B");
-            assertThat((long) rowB2.getCell(5).getNumericCellValue()).isEqualTo(20L);
-            assertThat(rowB2.getCell(6).getStringCellValue()).isEqualTo("Rem B2");
-            assertThat(rowB2.getCell(7).getStringCellValue()).isEqualTo("High");
-        }
-    }
-
-    @Test
-    void verifiesTaskFieldsArePopulatedCorrectly() throws Exception {
-        final UUID id = UUID.randomUUID();
-        final LocalDate created = LocalDate.of(2025, 3, 3);
-        final LocalDate due = LocalDate.of(2025, 3, 10);
-        final Task task = new Task(id, "PopTest", "PopDesc", created, due, TaskPriority.MEDIUM);
-
-        when(taskRepository.findAll()).thenReturn(List.of(task));
-        when(reminderClient.getRemindersForTask(task.taskId())).thenReturn(List.of());
-
-        final byte[] data = exportService.generateExport();
-        try (final XSSFWorkbook wb = new XSSFWorkbook(new ByteArrayInputStream(data))) {
-            final var row = wb.getSheet("Tasks & Reminders").getRow(1);
-
-            assertThat(row.getCell(0).getStringCellValue()).isEqualTo(id.toString());
-            assertThat(row.getCell(1).getStringCellValue()).isEqualTo("PopTest");
-            assertThat(row.getCell(2).getStringCellValue()).isEqualTo("PopDesc");
-            assertThat(row.getCell(3).getStringCellValue()).isEqualTo(created.toString());
-            assertThat(row.getCell(4).getStringCellValue()).isEqualTo(due.toString());
-            assertThat(row.getCell(7).getStringCellValue()).isEqualTo("Medium");
-        }
-    }
-
-    private enum FailureScenario {
-        REMINDER("Reminder service down"),
-        WRITE("Failed to generate Excel file");
-
-        private final String messageFragment;
-
-        FailureScenario(final String messageFragment) {
-            this.messageFragment = messageFragment;
-        }
-
-        String getMessageFragment() {
-            return messageFragment;
-        }
-    }
-
-    @ParameterizedTest
-    @EnumSource(value = FailureScenario.class, names = "REMINDER")
-    void generateExportFails_whenReminderServiceFails(final FailureScenario scenario) {
-        final Task task = new Task(UUID.randomUUID(), "ErrTest", "ErrDesc", LocalDate.now(), LocalDate.now().plusDays(1), TaskPriority.MEDIUM);
-        when(taskRepository.findAll()).thenReturn(List.of(task));
-        when(reminderClient.getRemindersForTask(task.taskId()))
-                .thenThrow(new RuntimeException("Reminder service down"));
-
-        assertThatThrownBy(exportService::generateExport)
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining(scenario.getMessageFragment());
-    }
-
-    @Test
-    void generateExportFails_whenWorkbookWriteFails() throws Exception {
-        Task task = new Task(UUID.randomUUID(), "ErrTest", "ErrDesc", LocalDate.now(), LocalDate.now().plusDays(1), TaskPriority.MEDIUM);
-        when(taskRepository.findAll()).thenReturn(List.of(task));
-        when(reminderClient.getRemindersForTask(task.taskId())).thenReturn(List.of());
-
-        ExportService spyService = Mockito.spy(new ExportService(taskRepository, reminderClient));
-
-        doThrow(new IOException("Disk full")).when(spyService).writeWorkbook(any(), any());
-
-        assertThatThrownBy(spyService::generateExport)
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Failed to generate Excel file");
+        assertEquals("Unsupported export format: " + unsupportedFormat, exception.getMessage());
     }
 }
