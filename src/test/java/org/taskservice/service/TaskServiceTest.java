@@ -7,18 +7,15 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestTemplate;
 import org.taskservice.client.ReminderClient;
 import org.taskservice.dto.CreateTaskRequest;
-import org.taskservice.dto.ReminderRequest;
 import org.taskservice.dto.ReminderResponse;
+import org.taskservice.event.TaskEventProducer;
 import org.taskservice.exception.TaskValidationException;
 import org.taskservice.model.Task;
 import org.taskservice.model.TaskPriority;
 import org.taskservice.repository.TaskRepository;
 
-import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
@@ -27,12 +24,9 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -44,10 +38,10 @@ class TaskServiceTest {
     private TaskRepository mockTaskRepository;
 
     @Mock
-    private RestTemplate mockRestTemplate;
+    private ReminderClient mockReminderClient;
 
     @Mock
-    private ReminderClient mockReminderClient;
+    private TaskEventProducer mockTaskEventProducer;
 
     @InjectMocks
     private TaskService taskService;
@@ -65,13 +59,6 @@ class TaskServiceTest {
 
         sampleTask = new Task(taskId, title, description, creationDate, dueDate, TaskPriority.HIGH);
         validCreateRequest = new CreateTaskRequest(title, "Task description", dueDate, TaskPriority.HIGH);
-    }
-
-    private String getReminderEndpoint() throws Exception {
-        final Field field = TaskService.class.getDeclaredField("reminderServiceBaseUrl");
-        field.setAccessible(true);
-        final String baseUrl = (String) field.get(taskService);
-        return baseUrl + "/reminders";
     }
 
     @Test
@@ -107,20 +94,16 @@ class TaskServiceTest {
     }
 
     @Test
-    void shouldCreateTaskAndTriggerReminder() throws Exception {
-        when(mockRestTemplate.postForEntity(anyString(), any(), eq(Void.class)))
-                .thenReturn(ResponseEntity.ok().build());
-
+    void shouldPersistTaskAndPublishTaskCreatedEvent() {
         taskService.createTask(validCreateRequest);
 
-        final ArgumentCaptor<ReminderRequest> requestCaptor = ArgumentCaptor.forClass(ReminderRequest.class);
+        final ArgumentCaptor<Task> taskCaptor = ArgumentCaptor.forClass(Task.class);
+        verify(mockTaskRepository, times(1)).save(taskCaptor.capture());
+        verify(mockTaskEventProducer, times(1)).publishTaskCreated(taskCaptor.getValue());
 
-        verify(mockRestTemplate, times(1))
-                .postForEntity(eq(getReminderEndpoint()), requestCaptor.capture(), eq(Void.class));
-
-        final ReminderRequest reminderRequest = requestCaptor.getValue();
-        assertNotNull(reminderRequest.getTaskId());
-        assertTrue(reminderRequest.getMessage().contains("Reminder for task: " + validCreateRequest.taskTitle()));
+        final Task savedTask = taskCaptor.getValue();
+        assertEquals(validCreateRequest.taskTitle(), savedTask.taskTitle());
+        assertEquals(TaskPriority.HIGH, savedTask.priority());
     }
 
     @Test
@@ -132,6 +115,7 @@ class TaskServiceTest {
                 () -> taskService.createTask(invalidRequest)
         );
         assertEquals("Task title cannot be empty", exception.getMessage());
+        verify(mockTaskEventProducer, never()).publishTaskCreated(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -143,23 +127,7 @@ class TaskServiceTest {
                 () -> taskService.createTask(invalidRequest)
         );
         assertEquals("Due date cannot be in the past", exception.getMessage());
-    }
-
-    @Test
-    void shouldTriggerReminderDirectly() throws Exception {
-        when(mockRestTemplate.postForEntity(anyString(), any(), eq(Void.class)))
-                .thenReturn(ResponseEntity.ok().build());
-
-        taskService.triggerReminder(sampleTask);
-
-        final ArgumentCaptor<ReminderRequest> requestCaptor = ArgumentCaptor.forClass(ReminderRequest.class);
-
-        verify(mockRestTemplate, times(1))
-                .postForEntity(eq(getReminderEndpoint()), requestCaptor.capture(), eq(Void.class));
-
-        final ReminderRequest reminderRequest = requestCaptor.getValue();
-        assertEquals(sampleTask.taskId(), reminderRequest.getTaskId());
-        assertTrue(reminderRequest.getMessage().contains("Reminder for task: " + sampleTask.taskTitle()));
+        verify(mockTaskEventProducer, never()).publishTaskCreated(org.mockito.ArgumentMatchers.any());
     }
 
     @Test

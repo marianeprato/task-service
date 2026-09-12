@@ -1,13 +1,10 @@
 package org.taskservice.service;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import org.taskservice.client.ReminderClient;
 import org.taskservice.dto.CreateTaskRequest;
-import org.taskservice.dto.ReminderRequest;
 import org.taskservice.dto.ReminderResponse;
+import org.taskservice.event.TaskEventProducer;
 import org.taskservice.exception.TaskValidationException;
 import org.taskservice.model.Task;
 import org.taskservice.model.TaskPriority;
@@ -22,20 +19,17 @@ import java.util.UUID;
 public class TaskService {
 
     private final TaskRepository taskRepository;
-    private final RestTemplate restTemplate;
-    private final String reminderServiceBaseUrl;
     private final ReminderClient reminderClient;
+    private final TaskEventProducer taskEventProducer;
 
     public TaskService(
             TaskRepository taskRepository,
-            RestTemplate restTemplate,
-            @Value("${reminder.service.base-url}") String reminderServiceBaseUrl,
-            ReminderClient reminderClient
+            ReminderClient reminderClient,
+            TaskEventProducer taskEventProducer
     ) {
         this.taskRepository = taskRepository;
-        this.restTemplate = restTemplate;
-        this.reminderServiceBaseUrl = reminderServiceBaseUrl;
         this.reminderClient = reminderClient;
+        this.taskEventProducer = taskEventProducer;
     }
 
     public List<Task> getTasks() {
@@ -72,17 +66,7 @@ public class TaskService {
         );
 
         taskRepository.save(newTask);
-        triggerReminder(newTask);
-    }
-
-    @Async
-    public void triggerReminder(Task task) {
-        ReminderRequest reminderRequest = new ReminderRequest(
-                task.taskId(),
-                "Reminder for task: " + task.taskTitle()
-        );
-        String reminderEndpoint = reminderServiceBaseUrl + "/reminders";
-        restTemplate.postForEntity(reminderEndpoint, reminderRequest, Void.class);
+        taskEventProducer.publishTaskCreated(newTask);
     }
 
 }
