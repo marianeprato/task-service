@@ -9,8 +9,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
+import org.taskservice.client.ReminderClient;
 import org.taskservice.dto.CreateTaskRequest;
 import org.taskservice.dto.ReminderRequest;
+import org.taskservice.dto.ReminderResponse;
 import org.taskservice.exception.TaskValidationException;
 import org.taskservice.model.Task;
 import org.taskservice.model.TaskPriority;
@@ -43,6 +45,9 @@ class TaskServiceTest {
 
     @Mock
     private RestTemplate mockRestTemplate;
+
+    @Mock
+    private ReminderClient mockReminderClient;
 
     @InjectMocks
     private TaskService taskService;
@@ -155,6 +160,19 @@ class TaskServiceTest {
         final ReminderRequest reminderRequest = requestCaptor.getValue();
         assertEquals(sampleTask.taskId(), reminderRequest.getTaskId());
         assertTrue(reminderRequest.getMessage().contains("Reminder for task: " + sampleTask.taskTitle()));
+    }
+
+    @Test
+    void shouldDelegateReminderLookupToReminderClient() {
+        final List<ReminderResponse> expected = List.of(
+                new ReminderResponse(1L, sampleTask.taskId(), "Reminder for task: " + sampleTask.taskTitle())
+        );
+        when(mockReminderClient.getRemindersForTask(sampleTask.taskId())).thenReturn(expected);
+
+        final List<ReminderResponse> result = taskService.getRemindersForTask(sampleTask.taskId());
+
+        assertEquals(expected, result);
+        verify(mockReminderClient, times(1)).getRemindersForTask(sampleTask.taskId());
     }
 
     @Test

@@ -4,8 +4,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.taskservice.client.ReminderClient;
 import org.taskservice.dto.CreateTaskRequest;
 import org.taskservice.dto.ReminderRequest;
+import org.taskservice.dto.ReminderResponse;
 import org.taskservice.exception.TaskValidationException;
 import org.taskservice.model.Task;
 import org.taskservice.model.TaskPriority;
@@ -22,15 +24,18 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final RestTemplate restTemplate;
     private final String reminderServiceBaseUrl;
+    private final ReminderClient reminderClient;
 
     public TaskService(
             TaskRepository taskRepository,
             RestTemplate restTemplate,
-            @Value("${reminder.service.base-url}") String reminderServiceBaseUrl
+            @Value("${reminder.service.base-url}") String reminderServiceBaseUrl,
+            ReminderClient reminderClient
     ) {
         this.taskRepository = taskRepository;
         this.restTemplate = restTemplate;
         this.reminderServiceBaseUrl = reminderServiceBaseUrl;
+        this.reminderClient = reminderClient;
     }
 
     public List<Task> getTasks() {
@@ -39,6 +44,10 @@ public class TaskService {
 
     public Optional<Task> getTask(final UUID taskId) {
         return Optional.ofNullable(taskRepository.findById(taskId));
+    }
+
+    public List<ReminderResponse> getRemindersForTask(final UUID taskId) {
+        return reminderClient.getRemindersForTask(taskId);
     }
 
     public void createTask(final CreateTaskRequest request) {
