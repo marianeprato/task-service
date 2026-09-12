@@ -1,0 +1,26 @@
+package org.taskservice.correlation;
+
+import org.springframework.http.HttpRequest;
+import org.springframework.http.client.ClientHttpRequestExecution;
+import org.springframework.http.client.ClientHttpRequestInterceptor;
+import org.springframework.http.client.ClientHttpResponse;
+
+import java.io.IOException;
+
+/**
+ * Propagates the current request's correlation id onto outbound RestTemplate
+ * calls (e.g. to reminder-service), so a failure can be traced across both
+ * services' logs.
+ */
+public class CorrelationIdClientInterceptor implements ClientHttpRequestInterceptor {
+
+    @Override
+    public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution)
+            throws IOException {
+        String correlationId = CorrelationIdContext.get();
+        if (correlationId != null) {
+            request.getHeaders().add(CorrelationIdContext.HEADER_NAME, correlationId);
+        }
+        return execution.execute(request, body);
+    }
+}

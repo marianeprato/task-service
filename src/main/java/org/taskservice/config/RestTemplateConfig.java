@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
+import org.taskservice.correlation.CorrelationIdClientInterceptor;
 
 import java.time.Duration;
 
@@ -21,6 +22,8 @@ public class RestTemplateConfig {
                 .withConnectTimeout(Duration.ofMillis(connectTimeoutMs))
                 .withReadTimeout(Duration.ofMillis(readTimeoutMs));
         ClientHttpRequestFactory requestFactory = ClientHttpRequestFactories.get(settings);
-        return new RestTemplate(requestFactory);
+        RestTemplate restTemplate = new RestTemplate(requestFactory);
+        restTemplate.getInterceptors().add(new CorrelationIdClientInterceptor());
+        return restTemplate;
     }
 }
