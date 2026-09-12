@@ -21,6 +21,11 @@ spring:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:tasks}
     username: ${DB_USERNAME:task}
     password: ${DB_PASSWORD:task}
+    hikari:
+      # Default is 30s: a DB outage would otherwise hang every request for
+      # 30 seconds before failing. 5s still comfortably covers normal pool
+      # contention under load.
+      connection-timeout: 5000
   jpa:
     hibernate:
       # Flyway is the sole authority on schema; JPA only validates it matches
