@@ -10,10 +10,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.taskservice.client.ReminderClient;
 import org.taskservice.dto.CreateTaskRequest;
 import org.taskservice.dto.ReminderResponse;
-import org.taskservice.event.TaskEventProducer;
 import org.taskservice.exception.TaskValidationException;
 import org.taskservice.model.Task;
 import org.taskservice.model.TaskPriority;
+import org.taskservice.outbox.OutboxEventEntity;
+import org.taskservice.outbox.OutboxEventFactory;
+import org.taskservice.outbox.OutboxEventRepository;
 import org.taskservice.repository.TaskRepository;
 
 import java.time.LocalDate;
@@ -26,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -41,7 +44,10 @@ class TaskServiceTest {
     private ReminderClient mockReminderClient;
 
     @Mock
-    private TaskEventProducer mockTaskEventProducer;
+    private OutboxEventRepository mockOutboxEventRepository;
+
+    @Mock
+    private OutboxEventFactory mockOutboxEventFactory;
 
     @InjectMocks
     private TaskService taskService;
@@ -94,12 +100,16 @@ class TaskServiceTest {
     }
 
     @Test
-    void shouldPersistTaskAndPublishTaskCreatedEvent() {
+    void shouldPersistTaskAndItsOutboxEventTogether() {
+        OutboxEventEntity outboxEvent = OutboxEventEntity.builder().build();
+        when(mockOutboxEventFactory.forTaskCreated(any())).thenReturn(outboxEvent);
+
         taskService.createTask(validCreateRequest);
 
         final ArgumentCaptor<Task> taskCaptor = ArgumentCaptor.forClass(Task.class);
         verify(mockTaskRepository, times(1)).save(taskCaptor.capture());
-        verify(mockTaskEventProducer, times(1)).publishTaskCreated(taskCaptor.getValue());
+        verify(mockOutboxEventFactory, times(1)).forTaskCreated(taskCaptor.getValue());
+        verify(mockOutboxEventRepository, times(1)).save(outboxEvent);
 
         final Task savedTask = taskCaptor.getValue();
         assertEquals(validCreateRequest.taskTitle(), savedTask.taskTitle());
@@ -115,7 +125,7 @@ class TaskServiceTest {
                 () -> taskService.createTask(invalidRequest)
         );
         assertEquals("Task title cannot be empty", exception.getMessage());
-        verify(mockTaskEventProducer, never()).publishTaskCreated(org.mockito.ArgumentMatchers.any());
+        verify(mockOutboxEventRepository, never()).save(any());
     }
 
     @Test
@@ -127,7 +137,7 @@ class TaskServiceTest {
                 () -> taskService.createTask(invalidRequest)
         );
         assertEquals("Due date cannot be in the past", exception.getMessage());
-        verify(mockTaskEventProducer, never()).publishTaskCreated(org.mockito.ArgumentMatchers.any());
+        verify(mockOutboxEventRepository, never()).save(any());
     }
 
     @Test

@@ -1,13 +1,15 @@
 package org.taskservice.service;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.taskservice.client.ReminderClient;
 import org.taskservice.dto.CreateTaskRequest;
 import org.taskservice.dto.ReminderResponse;
-import org.taskservice.event.TaskEventProducer;
 import org.taskservice.exception.TaskValidationException;
 import org.taskservice.model.Task;
 import org.taskservice.model.TaskPriority;
+import org.taskservice.outbox.OutboxEventFactory;
+import org.taskservice.outbox.OutboxEventRepository;
 import org.taskservice.repository.TaskRepository;
 
 import java.time.LocalDate;
@@ -20,16 +22,19 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final ReminderClient reminderClient;
-    private final TaskEventProducer taskEventProducer;
+    private final OutboxEventRepository outboxEventRepository;
+    private final OutboxEventFactory outboxEventFactory;
 
     public TaskService(
             TaskRepository taskRepository,
             ReminderClient reminderClient,
-            TaskEventProducer taskEventProducer
+            OutboxEventRepository outboxEventRepository,
+            OutboxEventFactory outboxEventFactory
     ) {
         this.taskRepository = taskRepository;
         this.reminderClient = reminderClient;
-        this.taskEventProducer = taskEventProducer;
+        this.outboxEventRepository = outboxEventRepository;
+        this.outboxEventFactory = outboxEventFactory;
     }
 
     public List<Task> getTasks() {
@@ -44,6 +49,14 @@ public class TaskService {
         return reminderClient.getRemindersForTask(taskId);
     }
 
+    /**
+     * Saves the task and writes its TaskCreated outbox row in the same DB
+     * transaction, so a crash right after this method returns can never
+     * leave one written without the other -- either both are durable, or
+     * neither is. Publishing to Kafka happens later, out-of-band, via
+     * {@link org.taskservice.outbox.OutboxRelay}.
+     */
+    @Transactional
     public void createTask(final CreateTaskRequest request) {
         if (request.taskTitle() == null || request.taskTitle().isBlank()) {
             throw new TaskValidationException("Task title cannot be empty");
@@ -66,7 +79,7 @@ public class TaskService {
         );
 
         taskRepository.save(newTask);
-        taskEventProducer.publishTaskCreated(newTask);
+        outboxEventRepository.save(outboxEventFactory.forTaskCreated(newTask));
     }
 
 }
