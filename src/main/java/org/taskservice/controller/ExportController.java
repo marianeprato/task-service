@@ -1,5 +1,7 @@
 package org.taskservice.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -17,6 +19,7 @@ import java.time.format.DateTimeFormatter;
 @RestController
 @RequestMapping("/exports")
 @RequiredArgsConstructor
+@Tag(name = "Exports", description = "Export tasks to spreadsheet formats")
 public class ExportController {
 
     private static final DateTimeFormatter TIMESTAMP_FMT =
@@ -25,6 +28,7 @@ public class ExportController {
     private final ExportService exportService;
 
     @GetMapping("/xlsx")
+    @Operation(summary = "Export all tasks as an Excel (.xlsx) file")
     public ResponseEntity<byte[]> exportTasksToExcel() {
         log.info("Export endpoint /xlsx called");
 

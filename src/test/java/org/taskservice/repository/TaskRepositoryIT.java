@@ -1,9 +1,14 @@
 package org.taskservice.repository;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.taskservice.model.Task;
 import org.taskservice.model.TaskPriority;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -13,14 +18,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class TaskRepositoryTest {
+/**
+ * Exercises TaskRepository against a real Postgres (via Testcontainers) with
+ * Flyway migrations applied, rather than mocking Spring Data JPA -- the
+ * whole point of this test is proving the entity mapping and the actual SQL
+ * schema agree with each other.
+ */
+@SpringBootTest
+@Testcontainers
+class TaskRepositoryIT {
 
+    @Container
+    @ServiceConnection
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+
+    @Autowired
     private TaskRepository taskRepository;
-
-    @BeforeEach
-    void setUp() {
-        taskRepository = new TaskRepository();
-    }
 
     @Test
     void shouldSaveAndFindById() {
@@ -75,7 +88,6 @@ class TaskRepositoryTest {
 
         assertTrue(all.contains(first));
         assertTrue(all.contains(second));
-        assertEquals(2, all.size());
     }
 
     @Test

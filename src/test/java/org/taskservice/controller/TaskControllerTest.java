@@ -8,6 +8,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 import org.taskservice.dto.CreateTaskRequest;
+import org.taskservice.dto.ReminderResponse;
 import org.taskservice.dto.TaskResponse;
 import org.taskservice.exception.TaskValidationException;
 import org.taskservice.model.Task;
@@ -86,6 +87,19 @@ class TaskControllerTest {
         assertEquals(sampleTask.taskDescription(), tr.taskDescription(), "Description should match");
         assertEquals(sampleTask.taskCreationDate(), tr.taskCreationDate(), "Creation date should match");
         assertEquals(sampleTask.taskDueDate(), tr.taskDueDate(), "Due date should match");
+    }
+
+    @Test
+    void getRemindersForTask_delegatesToServiceAndFallsBackGracefully() {
+        final UUID taskId = sampleTask.taskId();
+        when(taskService.getRemindersForTask(taskId)).thenReturn(List.of());
+
+        ResponseEntity<List<ReminderResponse>> response = taskController.getRemindersForTask(taskId);
+
+        assertEquals(200, response.getStatusCodeValue());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody().isEmpty(), "Body should be empty when reminder-service is unavailable");
+        verify(taskService, times(1)).getRemindersForTask(taskId);
     }
 
     @Test

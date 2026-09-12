@@ -1,14 +1,15 @@
 package org.taskservice.service;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.transaction.annotation.Transactional;
+import org.taskservice.client.ReminderClient;
 import org.taskservice.dto.CreateTaskRequest;
-import org.taskservice.dto.ReminderRequest;
+import org.taskservice.dto.ReminderResponse;
 import org.taskservice.exception.TaskValidationException;
 import org.taskservice.model.Task;
 import org.taskservice.model.TaskPriority;
+import org.taskservice.outbox.OutboxEventFactory;
+import org.taskservice.outbox.OutboxEventRepository;
 import org.taskservice.repository.TaskRepository;
 
 import java.time.LocalDate;
@@ -20,17 +21,20 @@ import java.util.UUID;
 public class TaskService {
 
     private final TaskRepository taskRepository;
-    private final RestTemplate restTemplate;
-    private final String reminderServiceBaseUrl;
+    private final ReminderClient reminderClient;
+    private final OutboxEventRepository outboxEventRepository;
+    private final OutboxEventFactory outboxEventFactory;
 
     public TaskService(
             TaskRepository taskRepository,
-            RestTemplate restTemplate,
-            @Value("${reminder.service.base-url}") String reminderServiceBaseUrl
+            ReminderClient reminderClient,
+            OutboxEventRepository outboxEventRepository,
+            OutboxEventFactory outboxEventFactory
     ) {
         this.taskRepository = taskRepository;
-        this.restTemplate = restTemplate;
-        this.reminderServiceBaseUrl = reminderServiceBaseUrl;
+        this.reminderClient = reminderClient;
+        this.outboxEventRepository = outboxEventRepository;
+        this.outboxEventFactory = outboxEventFactory;
     }
 
     public List<Task> getTasks() {
@@ -41,6 +45,18 @@ public class TaskService {
         return Optional.ofNullable(taskRepository.findById(taskId));
     }
 
+    public List<ReminderResponse> getRemindersForTask(final UUID taskId) {
+        return reminderClient.getRemindersForTask(taskId);
+    }
+
+    /**
+     * Saves the task and writes its TaskCreated outbox row in the same DB
+     * transaction, so a crash right after this method returns can never
+     * leave one written without the other -- either both are durable, or
+     * neither is. Publishing to Kafka happens later, out-of-band, via
+     * {@link org.taskservice.outbox.OutboxRelay}.
+     */
+    @Transactional
     public void createTask(final CreateTaskRequest request) {
         if (request.taskTitle() == null || request.taskTitle().isBlank()) {
             throw new TaskValidationException("Task title cannot be empty");
@@ -63,17 +79,7 @@ public class TaskService {
         );
 
         taskRepository.save(newTask);
-        triggerReminder(newTask);
-    }
-
-    @Async
-    public void triggerReminder(Task task) {
-        ReminderRequest reminderRequest = new ReminderRequest(
-                task.taskId(),
-                "Reminder for task: " + task.taskTitle()
-        );
-        String reminderEndpoint = reminderServiceBaseUrl + "/reminders";
-        restTemplate.postForEntity(reminderEndpoint, reminderRequest, Void.class);
+        outboxEventRepository.save(outboxEventFactory.forTaskCreated(newTask));
     }
 
 }
