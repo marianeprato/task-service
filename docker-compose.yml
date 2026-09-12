@@ -19,6 +19,42 @@ services:
       retries: 10
       start_period: 20s
 
+  # Each service owns its own database -- separate containers/volumes rather
+  # than two schemas in one Postgres instance, matching the microservice
+  # boundary the rest of this project draws (independent APIs, independent
+  # Kafka consumption, and now independent datastores too).
+  task-db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=tasks
+      - POSTGRES_USER=task
+      - POSTGRES_PASSWORD=task
+    ports:
+      - "5433:5432"
+    volumes:
+      - task-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U task -d tasks"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  reminder-db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=reminders
+      - POSTGRES_USER=reminder
+      - POSTGRES_PASSWORD=reminder
+    ports:
+      - "5434:5432"
+    volumes:
+      - reminder-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reminder -d reminders"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   reminder-service:
     build:
       context: ../reminder-service
@@ -26,8 +62,15 @@ services:
       - "8081:8081"
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - DB_HOST=reminder-db
+      - DB_PORT=5432
+      - DB_NAME=reminders
+      - DB_USERNAME=reminder
+      - DB_PASSWORD=reminder
     depends_on:
       kafka:
+        condition: service_healthy
+      reminder-db:
         condition: service_healthy
 
   task-service:
@@ -38,8 +81,19 @@ services:
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - REMINDER_SERVICE_BASE_URL=http://reminder-service:8081
+      - DB_HOST=task-db
+      - DB_PORT=5432
+      - DB_NAME=tasks
+      - DB_USERNAME=task
+      - DB_PASSWORD=task
     depends_on:
       kafka:
         condition: service_healthy
+      task-db:
+        condition: service_healthy
       reminder-service:
         condition: service_started
+
+volumes:
+  task-db-data:
+  reminder-db-data:
